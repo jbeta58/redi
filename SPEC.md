@@ -101,6 +101,9 @@ _Similar to Tidbyt — small ambient displays around the home that show useful, 
 - Show a specific "offline" message or icon
 - Retry silently in background
 - Time is fetched every 5 minutes (or more) from the weatherApi. Time is saved in the Matrix Portal and it will continue counting time until a new retrieve is made.
+- Time is synced from the server timestamp included in every successful API response.
+  The device keeps counting locally between polls and during outages using the M4's 
+  internal clock. On power loss without a prior sync, time is unknown until reconnection.
 
 ### 3.4 Night Mode / Quiet Hours
 <!-- Should the display behave differently at night? -->
@@ -120,6 +123,13 @@ _Similar to Tidbyt — small ambient displays around the home that show useful, 
 - The TRM api should be called once a day or if fail, try every hour until next day, or similar.
 - The weather api should be called every 5 minutes or more, I would like to keep in the API limits of the free tier. And we might need to do more calls when more devices are added.
 
+### 3.8 Device API URL
+- The firmware has one hardcoded value: the custom API base URL (e.g. `https://api.rediapp.com`)
+- This domain is owned by the project and acts as a stable abstraction layer over 
+  whatever backend infrastructure is in use.
+- The device API is versioned from day one (e.g. `/v1/render`) to allow future 
+  infrastructure migrations without reflashing deployed devices.
+- Devices poll: `https://api.rediapp.com/v1/render`
 
 
 ---
@@ -299,6 +309,13 @@ _Similar to Tidbyt — small ambient displays around the home that show useful, 
 ### 10.5 Code Languages
 - For device Arduino
 - For webapp (suggest)
+
+### 10.6 Custom Domain Strategy
+- `api.rediapp.com` — device API (what firmware calls, forever)
+- `app.rediapp.com` — web dashboard (what users open in browser)
+- DNS points these subdomains to Vercel today. If infrastructure changes, 
+  only the DNS record needs updating — deployed devices are unaffected.
+- Domain purchase deferred until after everything is working locally.
 
 ---
 
