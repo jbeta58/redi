@@ -40,7 +40,7 @@ export async function middleware(request: NextRequest) {
           // Both need updating so the session stays consistent
           // throughout the rest of the request lifecycle.
           cookiesToSet.forEach(({ name, value, options }) =>
-            request.cookies.set(name, value, options)
+            request.cookies.set({name, value, ...options})
           )
           supabaseResponse = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
