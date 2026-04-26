@@ -1347,7 +1347,8 @@ _Similar to Tidbyt — small ambient display around the home that shows useful, 
         | Wrap preview  | Shows computed line wrapping for both languages        |
  
 ---
-- **Countdown App** 
+- **Countdown App**
+    
     - **Overview**: Displays the number of days remaining until five fixed annual events. The app occupies a **single slot** in the device's normal rotation. Each time the slot comes around, it shows **one event** — advancing to the next event on the following cycle, then looping back to the start. Each event has two thematic pixel art icons flanking a centered countdown display.
     
         On the day of the event itself, the number is replaced with the word `TODAY`, displayed as a single centered line between the same icons.
@@ -1560,6 +1561,184 @@ _Similar to Tidbyt — small ambient display around the home that shows useful, 
         on each rotation cycle.
 
 ---
+
+- **National Flag App**
+
+    - **Overview**: Displays the national flag of a selected country across the full 64×32 LED matrix. The flag fills the entire screen. The app only appears in rotation on that country's national day — it is skipped silently on all other days.
+    Users can enable multiple countries. Each country's flag appears independently on its respective national day. If two countries share the same national day (none in the current country list do — see Section 6), both flags cycle one per rotation slot, like the Birthday app.
+ 
+    - **Layout**
+ 
+        The flag occupies the **entire 64×32 pixel display** — no borders, no labels, no text. Full bleed, edge to edge.
+ 
+        ```
+        ┌────────────────────────────────────────────────────────────────┐
+        │                                                                │
+        │                    [FLAG — full screen]                        │
+        │                       64 × 32 px                              │
+        │                                                                │
+        └────────────────────────────────────────────────────────────────┘
+        ```
+ 
+ 
+    - **Flag Design Principles**
+ 
+        Flags are stored as **pre-drawn pixel arrays in firmware** (`PROGMEM` flash — no RAM cost).
+        Each flag is a `const uint16_t PROGMEM` array of 64×32 = 2,048 pixels in RGB565 format
+        (4 KB per flag).
+        
+    - **Simplification Rules**
+ 
+        Flags are simplified to fit the 64×32 pixel grid cleanly:
+ 
+        - **Stripes and solid color regions** are rendered faithfully at full pixel precision.
+        - **Coats of arms, seals, text, and detailed emblems** are omitted entirely — replaced by
+        the dominant background color of that region.
+        - **Stars and simple geometric symbols** (e.g. Japan's circle, South Korea's trigrams) are
+        included in simplified pixel-art form if they are the defining visual element of the flag.
+        - **Fine diagonal lines** (e.g. UK Union Jack) are approximated — close enough to be
+        recognizable, not pixel-perfect.
+        - **The goal is instant recognition**, not heraldic accuracy.
+
+    - **Flash Budget**
+        
+        | Asset         | Count | Per flag | Subtotal  |
+        |---------------|-------|----------|-----------|
+        | Flag arrays   | 15    | 4 KB     | ~60 KB    |
+        
+        This fits comfortably within the Matrix Portal M4's 512 KB flash budget alongside all other
+        PROGMEM assets (see `SPEC-FIRMWARE-ADDENDUM.md` §A1.2).
+
+ 
+    - **Supported Countries**
+ 
+        - **Country List**
+ 
+            | # | Country     | National Day               | Date   | Flag Description (simplified)                              |
+            |---|-------------|----------------------------|--------|------------------------------------------------------------|
+            | 1 | Colombia    | Independence Day           | Jul 20 | 3 horizontal stripes: yellow (top, half height), blue, red |
+            | 2 | USA         | Independence Day           | Jul 4  | Red and white horizontal stripes; solid blue canton (top-left) — no individual stars |
+            | 3 | Argentina   | Independence Day           | Jul 9  | 3 horizontal stripes: light blue, white, light blue; Sun of May omitted |
+            | 4 | Spain       | National Day               | Oct 12 | 3 horizontal stripes: red, yellow (wider), red; coat of arms omitted |
+            | 5 | Italy       | Republic Day               | Jun 2  | 3 vertical stripes: green, white, red |
+            | 6 | France      | Bastille Day               | Jul 14 | 3 vertical stripes: blue, white, red |
+            | 7 | Germany     | German Unity Day           | Oct 3  | 3 horizontal stripes: black, red, gold/yellow |
+            | 8 | England     | St. George's Day           | Apr 23 | White background; red cross (vertical + horizontal, full bleed) |
+            | 9 | China       | National Day               | Oct 1  | Red background; large yellow 5-pointed star (top-left) + 4 smaller stars — simplified pixel art |
+            | 10| Japan       | National Foundation Day    | Feb 11 | White background; red circle centered |
+            | 11| Brazil      | Independence Day           | Sep 7  | Green background; yellow diamond centered; blue circle inside diamond — order/text omitted |
+            | 12| Mexico      | Independence Day           | Sep 16 | 3 vertical stripes: green, white, red; coat of arms omitted |
+            | 13| Canada      | Canada Day                 | Jul 1  | Red left panel, white center panel with simplified red maple leaf, red right panel |
+            | 14| South Korea | National Liberation Day    | Aug 15 | White background; red/blue Taeguk symbol centered — trigrams omitted |
+            | 15| Russia      | Russia Day                 | Jun 12 | 3 horizontal stripes: white, blue, red |
+            
+        - **National Day Conflict Check**
+ 
+            No two countries in the current list share the same national day date:
+            
+            | Month | Dates in use                                       |
+            |-------|----------------------------------------------------|
+            | Feb   | 11 (Japan)                                         |
+            | Apr   | 23 (England)                                       |
+            | Jun   | 2 (Italy), 12 (Russia)                             |
+            | Jul   | 1 (Canada), 4 (USA), 9 (Argentina), 14 (France), 20 (Colombia) |
+            | Aug   | 15 (South Korea)                                   |
+            | Sep   | 7 (Brazil), 16 (Mexico)                            |
+            | Oct   | 1 (China), 3 (Germany), 12 (Spain)                 |
+            
+            **No conflicts exist in the current list.** If a future country is added that shares a date
+            with an existing one, both flags cycle one per rotation slot on that day (same pattern as
+            the Birthday app).
+ 
+    - **App Behavior**
+ 
+        - **Rotation**
+            - The app **only appears in rotation on the national day** (matching month and day).
+            - On all other days, the app is **skipped silently** — it does not appear in rotation at all.
+            - The server handles date matching. The device renders whatever flag payload it receives.
+
+        - **Multiple Countries on the Same Day**
+            If two or more enabled countries share the same national day:
+            - Only **one flag is shown per rotation cycle**.
+            - On the next cycle, the **next country's flag** is shown.
+            - The server tracks the cycle index and sends only one flag per poll (same pattern as Birthday app).
+
+        - **Display Duration**
+            Follows the standard rotation duration configured by the user: **5, 10, or 20 seconds**.
+
+    - **Data Payload (from Server)**
+ 
+        The server sends a structured JSON object on each device poll. Example:
+        
+        ```json
+        {
+        "app": "national_flag",
+        "country_code": "CO"
+        }
+        ```
+        
+        | Field          | Type   | Description                                              |
+        |----------------|--------|----------------------------------------------------------|
+        | `country_code` | string | ISO 3166-1 alpha-2 code — matches firmware lookup table  |
+        
+        The device looks up the matching pre-stored pixel array in `PROGMEM` using `country_code`
+        and renders it full-screen. No pixel data is sent over the wire — all flag arrays live
+        in firmware flash.
+ 
+    - **Supported Country Codes**
+ 
+        | Code | Country     |
+        |------|-------------|
+        | `CO` | Colombia    |
+        | `US` | USA         |
+        | `AR` | Argentina   |
+        | `ES` | Spain       |
+        | `IT` | Italy       |
+        | `FR` | France      |
+        | `DE` | Germany     |
+        | `GB` | England     |
+        | `CN` | China       |
+        | `JP` | Japan       |
+        | `BR` | Brazil      |
+        | `MX` | Mexico      |
+        | `CA` | Canada      |
+        | `KR` | South Korea |
+        | `RU` | Russia      |
+        
+ 
+    - **Configuration (Web App)**
+ 
+        | Setting          | Detail                                                              |
+        |------------------|---------------------------------------------------------------------|
+        | Countries        | Multi-select — user enables one or more countries from the list     |
+        | Display duration | 5 / 10 / 20 seconds                                                 |
+        
+        - If no countries are enabled, the app is effectively disabled and never appears in rotation.
+        - The national day date is **not configurable** — it is fixed per country in the server logic.
+
+    - **Edge Cases**
+        
+        | Scenario                              | Behavior                                                        |
+        |---------------------------------------|-----------------------------------------------------------------|
+        | No enabled country has a national day today | App skipped silently in rotation                          |
+        | Unknown `country_code` received       | App skipped; no flag rendered                                   |
+        | Device offline on national day        | Last cached payload used; flag still renders if previously received |
+ 
+    - **Notes**
+ 
+        - **England vs UK:** England uses St. George's Day (Apr 23) as its national day. This is
+        a patron saint's day, not an official public holiday, but it is the recognized cultural
+        equivalent. The flag rendered is the St. George's Cross (red cross on white), not the
+        Union Jack.
+        - **Flag simplification rationale:** At 64×32 pixels, detailed emblems (coats of arms,
+        eagles, seals) become unrecognizable noise. Clean geometric flags (stripes, circles,
+        crosses) read instantly and look crisp on the LED matrix. Simplification is a feature,
+        not a limitation.
+        - **No new firmware needed to add countries:** Adding a new country requires only a new
+        pixel array in firmware and a new `country_code` entry in the lookup table. The payload
+        shape and rendering logic are unchanged.
+ 
+ ---
 
 ## 5. Scheduling & Configuration
 
