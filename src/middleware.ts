@@ -1,48 +1,51 @@
 /**
- * Next.js Middleware — Route Protection
+ * Next.js Middleware — Route Protection + Pathname Header
  *
- * This file is special — Next.js runs it automatically on every request
- * before the page loads. Think of it as a security guard at the entrance.
+ * Runs automatically on every matched request before the page loads.
  *
- * It does two things:
- *   1. Redirects unauthenticated users away from protected pages
- *   2. Redirects already-logged-in users away from the login page
- *
- * It also refreshes the Supabase session on every request, which keeps
- * the user logged in as long as they're actively using the app.
- *
- * IMPORTANT: This file must live at src/middleware.ts — Next.js looks
- * for it specifically at the root of the src/ folder.
+ * Does three things:
+ *   1. Refreshes the Supabase session cookie on every request
+ *   2. Redirects unauthenticated users away from protected pages → /login
+ *   3. Redirects logged-in users away from /login → /dashboard
+ *   4. Forwards the current pathname as x-pathname header so server
+ *      components (like the dashboard layout) can read it without
+ *      needing usePathname() — which only works in client components.
  */
 
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) { 
-  // Start by assuming we'll let the request through normally.
-  // We'll replace this with a redirect if auth checks fail.
-  let supabaseResponse = NextResponse.next({ request })
+export async function middleware(request: NextRequest) {
+  // Start by cloning the request headers so we can add our custom header
+  // while still passing everything else through unchanged.
+  const requestHeaders = new Headers(request.headers)
 
-  // Create a Supabase client adapted for middleware.
-  // Middleware has its own request/response cycle so it needs
-  // a slightly different cookie setup than the server client.
+  // Forward the pathname so server components can read it via next/headers.
+  // This avoids forcing layout components to be client components just to
+  // know which route is currently active.
+  requestHeaders.set('x-pathname', request.nextUrl.pathname)
+
+  let supabaseResponse = NextResponse.next({
+    request: { headers: requestHeaders },
+  })
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() {
-          // Read cookies from the incoming request
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          // Write cookies to both the request and the response.
-          // Both need updating so the session stays consistent
-          // throughout the rest of the request lifecycle.
+          // Write cookies to both request and response so the session stays
+          // consistent throughout the full request lifecycle.
           cookiesToSet.forEach(({ name, value, options }) =>
-            request.cookies.set({name, value, ...options})
+            request.cookies.set({ name, value, ...options })
           )
-          supabaseResponse = NextResponse.next({ request })
+          supabaseResponse = NextResponse.next({
+            request: { headers: requestHeaders },
+          })
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           )
@@ -51,37 +54,31 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Check if there is a logged-in user for this request.
-  // Supabase reads the session cookie set during login to determine this.
-  // The unusual destructuring { data: { user } } just pulls the user
-  // object out of Supabase's nested response shape.
+  // Refresh the session — this keeps the user logged in as long as they're
+  // actively using the app. Must be called before any redirect checks.
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Identify what kind of page is being requested
-  const isAuthPage = request.nextUrl.pathname.startsWith('/login')
+  const isAuthPage  = request.nextUrl.pathname.startsWith('/login')
   const isDashboard = request.nextUrl.pathname.startsWith('/dashboard')
+  const isAdmin     = request.nextUrl.pathname.startsWith('/admin')
+  const isProtected = isDashboard || isAdmin
 
-  // Rule 1: Not logged in and trying to reach a protected page → go to login
-  if (!user && isDashboard) {
+  // Rule 1: Not logged in, trying to reach a protected route → send to login
+  if (!user && isProtected) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Rule 2: Already logged in and trying to reach the login page → go to dashboard
-  // (no point showing the login page to someone already authenticated)
+  // Rule 2: Already logged in, trying to reach the login page → send to dashboard
   if (user && isAuthPage) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
-  // All checks passed — let the request through
+  // All checks passed — let the request through with our extra header attached
   return supabaseResponse
 }
 
-// Tell Next.js which URL paths should trigger this middleware.
-// Without this, middleware would run on every request including
-// static files, images, fonts, and API calls — very wasteful.
-//
-// '/dashboard/:path*' matches /dashboard and anything under it
-// e.g. /dashboard/devices, /dashboard/settings, etc.
 export const config = {
-  matcher: ['/dashboard/:path*', '/login'],
+  // Run middleware on dashboard routes, admin routes, and the login page.
+  // Excludes static files, images, fonts, and _next internals automatically.
+  matcher: ['/dashboard/:path*', '/admin/:path*', '/login'],
 }
