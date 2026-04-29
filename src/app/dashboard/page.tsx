@@ -18,11 +18,13 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from('profiles')
     .select('is_admin')
     .eq('id', user.id)
     .single()
+
+  console.log('profile lookup:', { profile, error, userId: user.id })
 
   if (profile?.is_admin === true) {
     redirect('/admin/devices')

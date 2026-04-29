@@ -25,7 +25,7 @@ export default function LoginPage() {
   const router   = useRouter()
   const supabase = createClient()
 
-  async function handleLogin() {
+  /*async function handleLogin() {
     setLoading(true)
     setError(null)
 
@@ -40,6 +40,29 @@ export default function LoginPage() {
 
     router.push('/dashboard')
   }
+*/
+
+async function handleLogin() {
+  setLoading(true)
+  setError(null)
+
+  console.log('attempting login with:', email)
+
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  })
+
+  console.log('full response:', JSON.stringify({ data, error }, null, 2))
+
+  if (error) {
+    setError('Invalid email or password')
+    setLoading(false)
+    return
+  }
+
+  router.push('/dashboard')
+}
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-black">
