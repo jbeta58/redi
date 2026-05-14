@@ -22,12 +22,12 @@ type Device = {
   name: string
   pairing_code: string
   is_online: boolean
-  last_seen_at: string | null
+  last_seen_at: Date | string | null
   timezone: string
   language: string
   city: string | null
   firmware_version: string | null
-  created_at: string
+  created_at: Date | string
   user_id: string | null
 }
 
@@ -71,7 +71,7 @@ const TIMEZONES = [
  * Formats a timestamp into a human-readable relative string.
  * e.g. "2 hours ago", "just now", "3 days ago"
  */
-function formatRelative(dateStr: string | null): string {
+function formatRelative(dateStr: Date | string | null): string {
   if (!dateStr) return 'Never'
   const diff = Date.now() - new Date(dateStr).getTime()
   const mins = Math.floor(diff / 60_000)

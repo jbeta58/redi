@@ -1,43 +1,25 @@
-/**
- * Admin — Users — /admin/users
- *
- * Lists all users (from profiles + auth.users).
- * Admin can:
- *   - See all users and their roles
- *   - Create new users (email + password + full name)
- *   - Edit a user's full name
- *   - Reset a user's password
- *
- * Creating users and resetting passwords requires the Supabase
- * Service Role key — these actions run in Server Actions only,
- * never in client-side code.
- */
-
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { auth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import UsersList from './UsersList'
 
 export const metadata = { title: 'Users' }
 
 export default async function AdminUsersPage() {
-  const supabase = await createServerSupabaseClient()
+  const session = await auth()
+  if (!session?.user) redirect('/login')
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const currentProfile = await prisma.profile.findUnique({
+    where:  { id: session.user.id },
+    select: { is_admin: true },
+  })
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('is_admin')
-    .eq('id', user.id)
-    .single()
+  if (!currentProfile?.is_admin) redirect('/dashboard/home')
 
-  if (!profile?.is_admin) redirect('/dashboard/home')
-
-  // Fetch all profiles — admins can read all via the RLS policy we added
-  const { data: profiles } = await supabase
-    .from('profiles')
-    .select('id, full_name, is_admin, created_at')
-    .order('created_at', { ascending: true })
+  const profiles = await prisma.profile.findMany({
+    orderBy: { created_at: 'asc' },
+    select:  { id: true, email: true, full_name: true, is_admin: true, created_at: true },
+  })
 
   return (
     <div className="p-6 max-w-2xl">
@@ -46,11 +28,11 @@ export default async function AdminUsersPage() {
           Users
         </h1>
         <p className="text-zinc-500 text-sm mt-1">
-          {profiles?.length ?? 0} user{profiles?.length !== 1 ? 's' : ''} registered
+          {profiles.length} user{profiles.length !== 1 ? 's' : ''} registered
         </p>
       </div>
 
-      <UsersList profiles={profiles ?? []} currentUserId={user.id} />
+      <UsersList profiles={profiles} currentUserId={session.user.id} />
     </div>
   )
 }

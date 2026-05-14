@@ -1,0 +1,122 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Profile {
+  id            String   @id @default(uuid()) @db.Uuid
+  email         String   @unique
+  password_hash String
+  full_name     String?
+  is_admin      Boolean  @default(false)
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  devices       Device[]
+
+  @@map("profiles")
+}
+
+model Device {
+  id                        String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id                   String          @db.Uuid
+  name                      String
+  pairing_code              String          @unique
+  api_key                   String?
+  timezone                  String          @default("America/Bogota")
+  language                  String          @default("en")
+  city                      String?
+  brightness                Int             @default(80)
+  rotation_duration_seconds Int             @default(10)
+  night_mode_enabled        Boolean         @default(false)
+  night_mode_start          DateTime?       @db.Time(6)
+  night_mode_end            DateTime?       @db.Time(6)
+  is_online                 Boolean         @default(false)
+  last_seen_at              DateTime?       @db.Timestamptz(6)
+  ip_address                String?
+  wifi_ssid                 String?
+  firmware_version          String?
+  created_at                DateTime        @default(now()) @db.Timestamptz(6)
+  birthday_entries          BirthdayEntry[]
+  device_apps               DeviceApp[]
+  profile                   Profile         @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("devices")
+}
+
+model App {
+  id          String      @id
+  name        String
+  description String?
+  has_config  Boolean     @default(false)
+  is_active   Boolean     @default(true)
+  created_at  DateTime    @default(now()) @db.Timestamptz(6)
+  device_apps DeviceApp[]
+
+  @@map("apps")
+}
+
+model DeviceApp {
+  id         String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  device_id  String     @db.Uuid
+  app_id     String
+  position   Int        @default(0)
+  is_enabled Boolean    @default(true)
+  config     Json?      @default("{}")
+  created_at DateTime   @default(now()) @db.Timestamptz(6)
+  app        App        @relation(fields: [app_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  device     Device     @relation(fields: [device_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  schedules  Schedule[]
+
+  @@map("device_apps")
+}
+
+model Quote {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  body_en    String
+  body_es    String
+  author     String
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("quotes")
+}
+
+model BirthdayEntry {
+  id                     String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  device_id              String   @db.Uuid
+  name                   String
+  birth_day              Int
+  birth_month            Int
+  birth_year             Int?
+  show_in_birthday       Boolean  @default(true)
+  show_in_happy_birthday Boolean  @default(true)
+  created_at             DateTime @default(now()) @db.Timestamptz(6)
+  device                 Device   @relation(fields: [device_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("birthday_entries")
+}
+
+model CurrencyHistory {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  date       DateTime @db.Date
+  cop_usd    Decimal? @db.Decimal
+  cop_eur    Decimal? @db.Decimal
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("currency_history")
+}
+
+model Schedule {
+  id            String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  device_app_id String    @db.Uuid
+  days_of_week  Int[]     @default([0, 1, 2, 3, 4, 5, 6])
+  time_start    DateTime? @db.Time(6)
+  time_end      DateTime? @db.Time(6)
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  device_app    DeviceApp @relation(fields: [device_app_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("schedules")
+}

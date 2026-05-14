@@ -1,100 +1,71 @@
 'use server'
 
-/**
- * Quotes Server Actions
- *
- * These functions run on the server when called from the QuotesList
- * client component. They handle all database writes for quotes.
- *
- * 'use server' at the top means every exported function in this file
- * is a Server Action — callable from client components like a regular
- * async function, but executed securely on the server.
- */
-
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { auth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-
 export interface QuoteFormData {
-  body_en: string
-  body_es: string
-  author: string
+  body_en:   string
+  body_es:   string
+  author:    string
   is_active: boolean
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 async function requireAdmin() {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+  const session = await auth()
+  if (!session?.user) throw new Error('Not authenticated')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('is_admin')
-    .eq('id', user.id)
-    .single()
+  const profile = await prisma.profile.findUnique({
+    where:  { id: session.user.id },
+    select: { is_admin: true },
+  })
 
   if (!profile?.is_admin) throw new Error('Not authorized')
-  return supabase
 }
 
-// ── Actions ───────────────────────────────────────────────────────────────────
-
 export async function createQuote(data: QuoteFormData) {
-  const supabase = await requireAdmin()
+  await requireAdmin()
 
-  const { error } = await supabase
-    .from('quotes')
-    .insert({
+  await prisma.quote.create({
+    data: {
       body_en:   data.body_en.trim(),
       body_es:   data.body_es.trim(),
       author:    data.author.trim().toUpperCase(),
       is_active: data.is_active,
-    })
+    },
+  })
 
-  if (error) throw new Error(error.message)
   revalidatePath('/admin/quotes')
 }
 
 export async function updateQuote(id: string, data: QuoteFormData) {
-  const supabase = await requireAdmin()
+  await requireAdmin()
 
-  const { error } = await supabase
-    .from('quotes')
-    .update({
+  await prisma.quote.update({
+    where: { id },
+    data: {
       body_en:   data.body_en.trim(),
       body_es:   data.body_es.trim(),
       author:    data.author.trim().toUpperCase(),
       is_active: data.is_active,
-    })
-    .eq('id', id)
+    },
+  })
 
-  if (error) throw new Error(error.message)
   revalidatePath('/admin/quotes')
 }
 
 export async function toggleQuoteActive(id: string, is_active: boolean) {
-  const supabase = await requireAdmin()
+  await requireAdmin()
 
-  const { error } = await supabase
-    .from('quotes')
-    .update({ is_active })
-    .eq('id', id)
+  await prisma.quote.update({ where: { id }, data: { is_active } })
 
-  if (error) throw new Error(error.message)
   revalidatePath('/admin/quotes')
 }
 
 export async function deleteQuote(id: string) {
-  const supabase = await requireAdmin()
+  await requireAdmin()
 
-  const { error } = await supabase
-    .from('quotes')
-    .delete()
-    .eq('id', id)
+  await prisma.quote.delete({ where: { id } })
 
-  if (error) throw new Error(error.message)
   revalidatePath('/admin/quotes')
 }

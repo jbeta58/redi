@@ -13,6 +13,16 @@
 import { useState, useTransition } from 'react'
 import { saveDeviceSettings, changePassword, type DeviceSettingsData } from './actions'
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function toTimeString(v: Date | string | null | undefined): string | null {
+  if (!v) return null
+  if (v instanceof Date) {
+    return v.toTimeString().slice(0, 5) // "HH:MM"
+  }
+  return typeof v === 'string' ? v.slice(0, 5) : null
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface Device {
@@ -23,8 +33,8 @@ interface Device {
   timezone: string
   rotation_duration_seconds: number
   night_mode_enabled: boolean
-  night_mode_start: string | null
-  night_mode_end: string | null
+  night_mode_start: Date | string | null
+  night_mode_end: Date | string | null
 }
 
 interface Props {
@@ -60,8 +70,8 @@ function DisplaySettings({ device }: { device: Device }) {
   const [city, setCity]           = useState(device.city ?? '')
   const [duration, setDuration]   = useState(device.rotation_duration_seconds)
   const [nightMode, setNightMode] = useState(device.night_mode_enabled)
-  const [nightStart, setNightStart] = useState(device.night_mode_start ?? '22:00')
-  const [nightEnd, setNightEnd]   = useState(device.night_mode_end ?? '07:00')
+  const [nightStart, setNightStart] = useState<string>(toTimeString(device.night_mode_start) ?? '22:00')
+  const [nightEnd, setNightEnd]   = useState<string>(toTimeString(device.night_mode_end) ?? '07:00')
   const [success, setSuccess]     = useState(false)
   const [error, setError]         = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()

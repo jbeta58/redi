@@ -17,9 +17,10 @@ import { formatDistanceToNow } from 'date-fns'
 
 interface Profile {
   id: string
+  email?: string
   full_name: string | null
   is_admin: boolean
-  created_at: string
+  created_at: Date | string
 }
 
 interface Props {

@@ -1,19 +1,7 @@
-/**
- * Login Page — /login
- *
- * Client component — handles user input and calls Supabase Auth.
- *
- * The login flow:
- *   1. User enters email + password and submits the form
- *   2. We call Supabase Auth directly from the browser
- *   3. On success: Next.js navigates to /dashboard
- *   4. On failure: show a generic error message
- */
-
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase'
+import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
@@ -22,17 +10,21 @@ export default function LoginPage() {
   const [error, setError]       = useState<string | null>(null)
   const [loading, setLoading]   = useState(false)
 
-  const router   = useRouter()
-  const supabase = createClient()
+  const router = useRouter()
 
-  /*async function handleLogin() {
+  async function handleLogin() {
     setLoading(true)
     setError(null)
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const result = await signIn('credentials', {
+      email,
+      password,
+      redirect: false,
+    })
 
-    if (error) {
-      // Generic message — never reveal whether the email or password was wrong
+    console.log(result)
+
+    if (result?.error) {
       setError('Invalid email or password')
       setLoading(false)
       return
@@ -40,50 +32,20 @@ export default function LoginPage() {
 
     router.push('/dashboard')
   }
-*/
-
-async function handleLogin() {
-  setLoading(true)
-  setError(null)
-
-  console.log('attempting login with:', email)
-
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  })
-
-  console.log('full response:', JSON.stringify({ data, error }, null, 2))
-
-  if (error) {
-    setError('Invalid email or password')
-    setLoading(false)
-    return
-  }
-
-  router.push('/dashboard')
-}
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-black">
       <div className="w-full max-w-sm px-6">
 
-        {/* Branding */}
         <div className="mb-10 text-center">
           <h1 className="text-4xl font-bold tracking-widest text-white font-mono">
             REDI
           </h1>
           <p className="text-zinc-500 text-sm mt-1">
-            RGB LED Display Infrastructure
+            Retro Display
           </p>
         </div>
 
-        {/*
-          Using a real <form> element so that:
-          - The browser recognises the password field correctly (no console warning)
-          - Pressing Enter in either field submits the form naturally
-          - e.preventDefault() stops the browser doing a full page reload
-        */}
         <form
           onSubmit={e => { e.preventDefault(); handleLogin() }}
           className="flex flex-col gap-4"

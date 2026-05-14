@@ -29,7 +29,7 @@ interface Quote {
   body_es: string
   author: string
   is_active: boolean
-  created_at: string
+  created_at: Date | string
 }
 
 interface Props {

@@ -15,6 +15,7 @@
 import type { Metadata } from 'next'
 import { JetBrains_Mono, Inter } from 'next/font/google'
 import './globals.css'
+import Providers from '@/components/Providers'
 
 /*
  * JetBrains Mono — used for all UI labels, nav items, codes, and
@@ -75,7 +76,7 @@ export default function RootLayout({
        *   Components that want monospace use font-mono explicitly.
        */}
       <body className="antialiased bg-zinc-900 text-zinc-100 font-sans">
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   )
