@@ -101,7 +101,7 @@ model BirthdayEntry {
 
 model CurrencyHistory {
   id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  date       DateTime @db.Date
+  date       DateTime @unique @db.Date
   cop_usd    Decimal? @db.Decimal
   cop_eur    Decimal? @db.Decimal
   created_at DateTime @default(now()) @db.Timestamptz(6)
