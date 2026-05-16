@@ -40,6 +40,12 @@ export async function createDevice(input: CreateDeviceInput): Promise<ActionResu
 
     const pairingCode = input.pairing_code.trim().toUpperCase()
 
+    const allApps = await prisma.app.findMany({
+      where: { is_active: true },
+      orderBy: { id: 'asc' },
+      select: { id: true },
+    })
+
     await prisma.device.create({
       data: {
         name:         input.name.trim(),
@@ -48,6 +54,14 @@ export async function createDevice(input: CreateDeviceInput): Promise<ActionResu
         timezone:     input.timezone,
         language:     input.language,
         city:         input.city?.trim() || null,
+        device_apps: {
+          create: allApps.map((app, index) => ({
+            app_id:     app.id,
+            position:   index,
+            is_enabled: app.id === 'clock',
+            config:     {},
+          })),
+        },
       },
     })
 

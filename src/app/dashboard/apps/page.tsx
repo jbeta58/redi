@@ -19,6 +19,25 @@ export default async function DashboardAppsPage() {
     },
   })
 
+  // Backfill device_apps for devices created before seeding
+  if (device && device.device_apps.length === 0) {
+    const allApps = await prisma.app.findMany({
+      where: { is_active: true },
+      orderBy: { id: 'asc' },
+      select: { id: true },
+    })
+    await prisma.deviceApp.createMany({
+      data: allApps.map((app, index) => ({
+        device_id:  device.id,
+        app_id:     app.id,
+        position:   index,
+        is_enabled: app.id === 'clock',
+        config:     {},
+      })),
+    })
+    redirect('/dashboard/apps')
+  }
+
   if (!device) {
     return (
       <div className="p-6 max-w-xl">
