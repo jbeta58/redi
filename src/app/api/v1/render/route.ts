@@ -1,5 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import {
+  fetchWeather,
+  mapConditionCode,
+  mapMoonPhase,
+  getMoonPhaseName,
+  getDayAbbr,
+  getDayAbbrFromStr,
+  temp,
+} from '@/lib/weather'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -258,6 +267,108 @@ async function renderCurrencyTrm(): Promise<AppPayload> {
   return { app: 'currency_trm', current_rate, delta, history_normalized }
 }
 
+// ── Weather renderers ─────────────────────────────────────────────────────────
+
+async function renderWeatherToday(
+  cfg: Cfg,
+  timezone: string,
+  language: string
+): Promise<AppPayload | null> {
+  const city = cfg.city as string | undefined
+  const unit = (cfg.unit as 'C' | 'F' | undefined) ?? 'C'
+  if (!city) return null
+
+  const w = await fetchWeather(city)
+  if (!w) return null
+
+  const now      = new Date()
+  const days     = w.forecast.forecastday
+  const today    = days[0]
+  const tomorrow = days[1]
+  if (!today || !tomorrow) return null
+
+  return {
+    app: 'weather_today',
+    today: {
+      day:          getDayAbbr(now, timezone, language),
+      high:         temp(unit === 'F' ? today.day.maxtemp_f : today.day.maxtemp_c, unit),
+      low:          temp(unit === 'F' ? today.day.mintemp_f : today.day.mintemp_c, unit),
+      illustration: mapConditionCode(w.current.condition.code),
+      is_day:       w.current.is_day === 1,
+    },
+    tomorrow: {
+      day:          getDayAbbrFromStr(tomorrow.date, language),
+      high:         temp(unit === 'F' ? tomorrow.day.maxtemp_f : tomorrow.day.maxtemp_c, unit),
+      low:          temp(unit === 'F' ? tomorrow.day.mintemp_f : tomorrow.day.mintemp_c, unit),
+      illustration: mapConditionCode(tomorrow.day.condition.code),
+    },
+    unit,
+  }
+}
+
+async function renderWeatherThreeDays(
+  cfg: Cfg,
+  timezone: string,
+  language: string
+): Promise<AppPayload | null> {
+  const city = cfg.city as string | undefined
+  const unit = (cfg.unit as 'C' | 'F' | undefined) ?? 'C'
+  if (!city) return null
+
+  const w = await fetchWeather(city)
+  if (!w) return null
+
+  const now  = new Date()
+  const days = w.forecast.forecastday
+  if (days.length < 3) return null
+
+  const result = days.map((d, i) => ({
+    day:          i === 0 ? getDayAbbr(now, timezone, language) : getDayAbbrFromStr(d.date, language),
+    high:         temp(unit === 'F' ? d.day.maxtemp_f : d.day.maxtemp_c, unit),
+    low:          temp(unit === 'F' ? d.day.mintemp_f : d.day.mintemp_c, unit),
+    illustration: i === 0 ? mapConditionCode(w.current.condition.code) : mapConditionCode(d.day.condition.code),
+    is_day:       i === 0 ? w.current.is_day === 1 : true,
+  }))
+
+  return { app: 'weather_three_days', days: result, unit }
+}
+
+async function renderMoonPhase(
+  cfg: Cfg,
+  language: string
+): Promise<AppPayload | null> {
+  // Moon phase is global — use a default city if none configured (or device city)
+  const city = (cfg.city as string | undefined) ?? 'London'
+
+  const w = await fetchWeather(city)
+  if (!w) return null
+
+  const phaseName = w.forecast.forecastday[0]?.astro.moon_phase ?? 'New Moon'
+  const code      = mapMoonPhase(phaseName)
+  const name      = getMoonPhaseName(code, language)
+
+  return { app: 'moon_phase', phase: code, name }
+}
+
+async function renderThreeCitiesClock(cfg: Cfg): Promise<AppPayload | null> {
+  const cityKeys = ['city1', 'city2', 'city3'] as const
+  const cityNames = cityKeys.map(k => cfg[k] as string | undefined).filter(Boolean) as string[]
+  if (cityNames.length < 3) return null
+
+  const results = await Promise.all(
+    cityNames.map(async city => {
+      const w = await fetchWeather(city)
+      return {
+        name:     city,
+        timezone: w?.location.tz_id ?? null,
+        is_day:   w ? w.current.is_day === 1 : true,
+      }
+    })
+  )
+
+  return { app: 'three_cities_clock', cities: results }
+}
+
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
@@ -309,13 +420,11 @@ export async function GET(request: NextRequest) {
       case 'national_flag':   payload = renderNationalFlag(cfg, today); break
       case 'currency_trm':    payload = await renderCurrencyTrm(); break
 
-      // External API apps — not yet implemented
-      case 'weather_today':
-      case 'weather_three_days':
-      case 'moon_phase':
-      case 'three_cities_clock':
-      case 'currency_eur':
-        continue
+      case 'weather_today':       payload = await renderWeatherToday(cfg, device.timezone, device.language); break
+      case 'weather_three_days':  payload = await renderWeatherThreeDays(cfg, device.timezone, device.language); break
+      case 'moon_phase':          payload = await renderMoonPhase(cfg, device.language); break
+      case 'three_cities_clock':  payload = await renderThreeCitiesClock(cfg); break
+      case 'currency_eur':        continue  // not yet implemented
     }
 
     if (payload) apps.push(payload)
