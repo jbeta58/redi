@@ -77,6 +77,30 @@ function getDateInTimezone(now: Date, timezone: string): DateParts {
   }
 }
 
+function getLocalTimeParts(now: Date, timezone: string) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    year: 'numeric', month: 'numeric', day: 'numeric',
+    hour: 'numeric', minute: 'numeric', second: 'numeric',
+    hour12: false, weekday: 'short',
+  }).formatToParts(now)
+
+  const get = (type: string) => parseInt(parts.find(p => p.type === type)!.value)
+
+  const weekdayStr = parts.find(p => p.type === 'weekday')!.value
+  const weekdayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
+
+  return {
+    year:    get('year'),
+    month:   get('month'),
+    day:     get('day'),
+    hour:    get('hour'),   // 0–23 (hour12: false)
+    minute:  get('minute'),
+    second:  get('second'),
+    weekday: weekdayMap[weekdayStr] ?? 0,  // 0 = Sunday
+  }
+}
+
 function daysUntil(eventMonth: number, eventDay: number, today: DateParts): number {
   const t = new Date(today.year, today.month - 1, today.day)
   let e = new Date(today.year, eventMonth - 1, eventDay)
@@ -477,9 +501,11 @@ export async function GET(request: NextRequest) {
   })
 
   return NextResponse.json({
-    server_ts: Math.floor(now.getTime() / 1000),
-    language:  device.language,
-    timezone:  device.timezone,
+    server_ts:        Math.floor(now.getTime() / 1000),
+    language:         device.language,
+    timezone:         device.timezone,
+    rotation_seconds: device.rotation_duration_seconds,
+    local:            getLocalTimeParts(now, device.timezone),
     apps,
   })
 }
