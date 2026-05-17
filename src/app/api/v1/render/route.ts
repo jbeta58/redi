@@ -267,6 +267,34 @@ async function renderCurrencyTrm(): Promise<AppPayload> {
   return { app: 'currency_trm', current_rate, delta, history_normalized }
 }
 
+async function renderCurrencyEur(): Promise<AppPayload> {
+  const rows = await prisma.currencyHistory.findMany({
+    where:   { cop_eur: { not: null } },
+    orderBy: { date: 'asc' },
+    take:    30,
+    select:  { cop_eur: true },
+  })
+
+  if (rows.length === 0) {
+    return { app: 'currency_eur', current_rate: null, delta: null, history_normalized: [] }
+  }
+
+  const rates = rows.map(r => parseFloat(r.cop_eur!.toString()))
+  const min   = Math.min(...rates)
+  const max   = Math.max(...rates)
+  const range = max - min || 1
+
+  const history_normalized = rates.map(r =>
+    Math.round(((r - min) / range) * 100) / 100
+  )
+  const current_rate = +rates[rates.length - 1].toFixed(2)
+  const delta = rates.length >= 2
+    ? +(rates[rates.length - 1] - rates[rates.length - 2]).toFixed(2)
+    : null
+
+  return { app: 'currency_eur', current_rate, delta, history_normalized }
+}
+
 // ── Weather renderers ─────────────────────────────────────────────────────────
 
 async function renderWeatherToday(
@@ -424,7 +452,7 @@ export async function GET(request: NextRequest) {
       case 'weather_three_days':  payload = await renderWeatherThreeDays(cfg, device.timezone, device.language); break
       case 'moon_phase':          payload = await renderMoonPhase(cfg, device.language); break
       case 'three_cities_clock':  payload = await renderThreeCitiesClock(cfg); break
-      case 'currency_eur':        continue  // not yet implemented
+      case 'currency_eur':        payload = await renderCurrencyEur(); break
     }
 
     if (payload) apps.push(payload)
