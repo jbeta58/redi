@@ -12,6 +12,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import { Monitor, Plus, Trash2, X, Wifi, WifiOff, ChevronDown } from 'lucide-react'
 import { createDevice, deleteDevice } from './actions'
 
@@ -390,9 +391,12 @@ export default function DeviceList({ devices, profiles, currentUserId }: Props) 
             >
               {/* Name + pairing code */}
               <div className="min-w-0">
-                <p className="font-mono text-sm text-zinc-200 font-semibold truncate">
+                <Link
+                  href={`/admin/devices/${device.id}`}
+                  className="font-mono text-sm text-zinc-200 font-semibold truncate hover:text-amber-400 transition-colors"
+                >
                   {device.name}
-                </p>
+                </Link>
                 <p className="font-mono text-[11px] text-zinc-500 mt-0.5">
                   {device.pairing_code}
                   {device.city ? ` · ${device.city}` : ''}
