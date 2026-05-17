@@ -4,133 +4,121 @@
 
 ---
 
-## Phase 1 — App Configuration UI (current focus)
+## Phase 1 — App Configuration UI ✅
 
-Goal: users can enable/disable and configure each of the 14 apps from the dashboard.
+### 1.1 App config pages — `/dashboard/apps/[appId]` ✅
 
-### 1.1 App config pages — `/dashboard/apps/[appId]`
+| App ID | Settings | Status |
+|--------|----------|--------|
+| `clock` | 12h/24h | ✅ |
+| `word_clock` | none | ✅ |
+| `clock_date` | 12h/24h | ✅ |
+| `three_cities_clock` | 3 × city input | ✅ |
+| `date_progress` | none | ✅ |
+| `weather_today` | city, °C/°F | ✅ |
+| `weather_three_days` | city, °C/°F | ✅ |
+| `moon_phase` | none | ✅ |
+| `currency_trm` | display duration | ✅ |
+| `currency_eur` | display duration | ✅ |
+| `birthday` | CRUD entries | ✅ |
+| `happy_birthday` | shared with birthday | ✅ |
+| `quotes` | none (admin-managed) | ✅ |
+| `countdown` | display duration | ✅ |
+| `national_flag` | multi-select countries | ✅ |
 
-Each app gets a config route. Apps with no settings (fully automatic) just show an enable/disable toggle.
+### 1.2 Apps list page — `/dashboard/apps` ✅
+- [x] Drag-and-drop reorder (dnd-kit)
+- [x] Enable/disable toggle per app
+- [x] "Configure" gear icon for apps with settings
+- [x] Backfill logic for existing devices with no device_apps
 
-| App ID | Settings needed | Status |
-|--------|----------------|--------|
-| `clock` | timezone, 12h/24h | [ ] |
-| `word_clock` | timezone | [ ] |
-| `clock_date` | timezone, 12h/24h | [ ] |
-| `three_cities_clock` | 3 × city picker, (timezone auto-resolved) | [ ] |
-| `date_progress` | none (fully automatic) | [ ] |
-| `weather_today` | city, °F/°C | [ ] |
-| `weather_three_days` | city, °F/°C | [ ] |
-| `moon_phase` | none (fully automatic) | [ ] |
-| `currency_trm` | display duration | [ ] |
-| `currency_eur` | display duration (disabled — data source TBD) | [ ] |
-| `birthday` | birthday entries CRUD | [ ] |
-| `happy_birthday` | birthday entries CRUD (shared with above) | [ ] |
-| `quotes` | none (managed by admin) | [ ] |
-| `countdown` | display duration | [ ] |
-| `national_flag` | multi-select countries, display duration | [ ] |
-
-### 1.2 Apps list page — `/dashboard/apps`
-- [ ] Drag-and-drop reorder (dnd-kit already installed)
-- [ ] Enable/disable toggle per app
-- [ ] "Configure" link for apps that have settings
-- [ ] Warn + block save if zero apps enabled
-
-### 1.3 Seed the `apps` table
-- [ ] Insert all 14 app rows with correct IDs, names, `has_config` flag
+### 1.3 Seed the `apps` table ✅
+- [x] 15 app rows with IDs, names, `has_config` flag, via `tsx prisma/seed.ts`
 
 ---
 
-## Phase 2 — Device Registration Flow
+## Phase 2 — Device Registration Flow ✅
 
-Goal: a new physical device can be linked to a user account.
-
-- [ ] Pairing code displayed by firmware on first boot (already have `pairing_code` column)
-- [ ] `/dashboard/home` — "Link a device" button → modal to enter pairing code
-- [ ] Server action: find device by pairing code → assign `user_id`, generate `api_key`
-- [ ] After linking: device appears in the user's home with name + status
-- [ ] Admin can pre-create devices (already done) with a printed pairing code
+- [x] `/dashboard/home` — three states: no device / unlinked / linked dashboard
+- [x] Pairing code entry form → `linkDevice` server action → generates `api_key`
+- [x] Admin creates device → `device_apps` auto-seeded for all active apps
+- [x] Linked device shows status (online/offline), last seen, rotation, enabled apps
 
 ---
 
-## Phase 3 — Render Endpoint
+## Phase 3 — Render Endpoint ✅
 
-Goal: firmware can call `GET /api/v1/render` and receive the full payload to display.
-
-### 3.1 Authentication
-- [ ] Device authenticates via `Authorization: Bearer <api_key>` header
-- [ ] Middleware or route-level check validates key → resolves `device_id`
+### 3.1 Authentication ✅
+- [x] `Authorization: Bearer <api_key>` header validation
 
 ### 3.2 Render logic per app
-The endpoint builds the full JSON response — one object per enabled app — based on:
-- Device's enabled apps (ordered by `position`)
-- App-specific config from `device_apps.config`
-- Current time in device's timezone
-- External API data (weather, TRM)
 
-| App | Server work | External API |
-|-----|-------------|--------------|
-| `clock` | current time in timezone | none |
-| `word_clock` | language setting only | none |
-| `clock_date` | language setting only | none |
-| `three_cities_clock` | time + sunrise/sunset per city | WeatherAPI |
-| `date_progress` | current date | none |
-| `weather_today` | forecast + condition mapping | WeatherAPI |
-| `weather_three_days` | 3-day forecast + condition mapping | WeatherAPI |
-| `moon_phase` | phase name → code mapping | WeatherAPI |
-| `currency_trm` | normalize history array, compute delta | TRM (cached) |
-| `currency_eur` | normalize history array, compute delta | Frankfurter (TBD) |
-| `birthday` | filter today's entries, cycle index | none |
-| `happy_birthday` | filter today's entries, cycle index | none |
-| `quotes` | select next quote by language, advance pointer | none |
-| `countdown` | advance event index, compute days remaining | none |
-| `national_flag` | check today's national days | none |
+| App | Status |
+|-----|--------|
+| `clock` | ✅ |
+| `word_clock` | ✅ |
+| `clock_date` | ✅ |
+| `three_cities_clock` | ✅ (WeatherAPI for timezone + is_day) |
+| `date_progress` | ✅ |
+| `weather_today` | ✅ |
+| `weather_three_days` | ✅ |
+| `moon_phase` | ✅ |
+| `currency_trm` | ✅ (reads currency_history, 30-day normalized chart) |
+| `currency_eur` | [ ] stubbed — wire up same as TRM |
+| `birthday` | ✅ (today filter + cycle index) |
+| `happy_birthday` | ✅ |
+| `quotes` | ✅ (sequential cycling, EN/ES) |
+| `countdown` | ✅ (5 events round-robin) |
+| `national_flag` | ✅ (today's national days) |
 
-### 3.3 Timestamp in response
-- [ ] Every response includes a `server_ts` Unix timestamp (device syncs its clock from this)
+### 3.3 Device heartbeat ✅
+- [x] `server_ts`, `language`, `timezone` in every response
+- [x] `last_seen_at` and `is_online` updated on every render call
 
-### 3.4 Caching strategy
-- Weather: cache per city, expire after 5 min
-- TRM: cache in `currency_history` table, fetch once/day
-- Moon phase: part of WeatherAPI astronomy call, cache per location per day
+### 3.4 Caching strategy ✅
+- [x] Weather: 5-min in-memory cache per city
+- [x] Cycle state (quotes, birthday, countdown): stored in `device_apps.config` JSON
+- [x] Currency: stored in `currency_history`, fetched from DB at render time
 
 ---
 
-## Phase 4 — External API Integrations
+## Phase 4 — External API Integrations ✅
 
-### 4.1 WeatherAPI
-- [ ] `/api/weather/[city]` internal utility — wraps WeatherAPI calls
-- [ ] Map 57 WeatherAPI condition codes → 9 REDI illustration codes
-- [ ] Extract: forecast, high/low, sunrise/sunset, moon phase
+### 4.1 WeatherAPI ✅
+- [x] `src/lib/weather.ts` — fetchWeather with 5-min cache
+- [x] 57 condition codes → 7 REDI illustration codes
+- [x] Moon phase mapping (8 phases, EN/ES names)
+- [x] Day abbreviations (EN/ES, timezone-aware)
 
-### 4.2 TRM (COP/USD)
-- [ ] Daily cron job: fetch from Superintendencia Financiera de Colombia
-- [ ] Store in `currency_history` (30-day rolling window)
-- [ ] Normalize history to 0.0–1.0 float array server-side
+### 4.2 TRM (COP/USD) ✅
+- [x] `GET /api/cron/trm` — fetches from datos.gov.co (Superfinanciera)
+- [x] Upserts by `vigenciadesde` date (handles weekends/holidays correctly)
+- [x] Cron: daily at 11:00 UTC (6:00am COT), logs to `logs/cron-trm.log`
+- [x] 22 rows backfilled (Apr 16 – May 16)
 
-### 4.3 EUR/COP
-- [ ] Evaluate Frankfurter or dolarapi.com
-- [ ] Same caching pattern as TRM once source is confirmed
+### 4.3 EUR/COP ✅
+- [x] `GET /api/cron/eur` — fetches from fawazahmed0 CDN (ECB data, no key)
+- [x] Same upsert pattern as TRM
+- [x] Cron: daily at 11:00 UTC (6:00am COT), logs to `logs/cron-eur.log`
+- [x] 22 rows backfilled (Apr 16 – May 16)
 
 ---
 
 ## Phase 5 — Admin Improvements
 
-- [ ] Admin device detail page — edit device name, reassign user, force offline
-- [ ] Admin quotes page already exists — verify wrap preview works correctly
+- [ ] Admin device detail page — edit name, reassign user, force offline
+- [ ] Admin quotes page — verify line-wrap preview works correctly
 - [ ] Email notifications: device offline > 1 week, device back online, API errors
 
 ---
 
 ## Phase 6 — Firmware (Arduino / CircuitPython)
 
-Goal: Matrix Portal M4 firmware that calls the render endpoint and drives the display.
-
 - [ ] WiFi setup AP mode (captive portal for first-time setup)
-- [ ] Boot animation sequence (single pixel → line → rect reveal → logo → signature → connecting)
+- [ ] Boot animation (pixel → line → rect → logo → signature → connecting)
 - [ ] Poll `/v1/render` every 1–5 min, parse JSON
 - [ ] App rendering engine — one render function per app
-- [ ] Pixel art assets in PROGMEM (flags, birthday cake, balloons, countdown icons, weather icons, moon phases)
+- [ ] Pixel art assets in PROGMEM (flags, cake, balloons, icons, weather, moon)
 - [ ] Word clock on-device logic (EN + ES lookup tables)
 - [ ] Clock date on-device day/month lookup tables
 - [ ] Date progress bars — computed from internal clock every minute
@@ -140,23 +128,9 @@ Goal: Matrix Portal M4 firmware that calls the render endpoint and drives the di
 
 ---
 
-## Schema changes still needed
+## Remaining loose ends (before firmware)
 
-- [ ] Add `countdown_event_index` int to `Device` (for countdown app rotation)
-- [ ] Add `last_quote_id` uuid to `DeviceApp` or track in `config` json (for quote cycling)
-- [ ] Add `flag_cycle_index` int to `DeviceApp` config (for national flag cycling)
-- [ ] Add `birthday_cycle_index` int to `DeviceApp` config (for birthday cycling)
-
----
-
-## Current order of attack
-
-1. Seed `apps` table
-2. Apps list page (reorder + toggle)
-3. App config pages (start with simple ones: clock, date_progress, moon_phase)
-4. Birthday entries CRUD (most complex config UI)
-5. Device registration flow
-6. Render endpoint skeleton + clock/date apps (no external APIs)
-7. WeatherAPI integration + weather apps
-8. TRM integration + currency app
-9. Firmware
+- [ ] Wire `currency_eur` renderer in `/api/v1/render` (1-line change, same as TRM)
+- [ ] Admin device detail / edit page
+- [ ] Decide: do we need a quotes admin UI improvement (wrap preview)?
+- [ ] Consider: admin page to view currency_history table
